@@ -63,12 +63,21 @@ inputs = {
       ip               = "192.168.0.3",
       port             = 8123,
       scheme           = "http"
-      access_list_name = "LAN"
 
       ssl = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
+    "audiobookshelf" = {
+      domain_names     = ["abs.${local.domains.hf_domain}"]
+      ip               = "192.168.0.3",
+      port             = 13378,
+      scheme           = "http"
+
+      ssl = {
+        certificate_name = "*.${local.domains.hf_domain}"
+      }
+    }
     "auth" = {
       domain_names = ["auth.${local.domains.hf_domain}"]
       ip           = "192.168.0.3",
@@ -191,6 +200,10 @@ inputs = {
       access_list_name = "LAN"
 
       ssl = {
+        force_ssl        = false
+        http2_support    = false
+        hsts_enabled     = false
+        hsts_subdomains  = false
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
