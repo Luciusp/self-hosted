@@ -6,6 +6,7 @@ provider "registry.opentofu.org/maxlaverse/bitwarden" {
   constraints = ">= 0.13.6"
   hashes = [
     "h1:WTSDFVmPxY92/9kJbgTyKmwENDxf4nc2SNe8PcvRd/U=",
+    "h1:hLSaEwJrdX3J4dkHjNBzOFzljO9Wu/doHSkjRY1PKpA=",
     "zh:0548cf354bd65bb146e63db28fe3c6ab9339118f0255271886d8088325c7a044",
     "zh:1eb2f8b07da17acb0cf9fde60b15facfe599faaf912b0a540ad18629e6fd76eb",
     "zh:2f58bcce32cb8082f0627f7ca12925d73e0c9a2fe9501a6060dfa90472a5ddc3",

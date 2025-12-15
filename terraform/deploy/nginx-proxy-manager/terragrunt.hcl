@@ -63,16 +63,17 @@ inputs = {
       ip               = "192.168.0.3",
       port             = 8123,
       scheme           = "http"
+      access_list_name = "LAN"
 
       ssl = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
     "audiobookshelf" = {
-      domain_names     = ["abs.${local.domains.hf_domain}"]
-      ip               = "192.168.0.3",
-      port             = 13378,
-      scheme           = "http"
+      domain_names = ["abs.${local.domains.hf_domain}"]
+      ip           = "192.168.0.3",
+      port         = 13378,
+      scheme       = "http"
 
       ssl = {
         certificate_name = "*.${local.domains.hf_domain}"
@@ -99,6 +100,16 @@ inputs = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
+    "copyparty" = {
+      domain_names = ["copy.${local.domains.hf_domain}"]
+      ip           = "192.168.0.3",
+      port         = 3923,
+      scheme       = "http"
+
+      ssl = {
+        certificate_name = "*.${local.domains.hf_domain}"
+      }
+    },
     "hedgedoc" = {
       domain_names = ["hedgedoc.${local.domains.hf_domain}"]
       ip           = "192.168.0.3",
@@ -110,20 +121,22 @@ inputs = {
       }
     },
     "hoth" = {
-      domain_names = ["hoth.${local.domains.hf_domain}"]
-      ip           = "192.168.0.200",
-      port         = 8006,
-      scheme       = "https"
+      domain_names     = ["hoth.${local.domains.hf_domain}"]
+      ip               = "192.168.0.200",
+      port             = 8006,
+      scheme           = "https"
+      access_list_name = "LAN"
 
       ssl = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
     "kamino" = {
-      domain_names = ["kamino.${local.domains.hf_domain}"]
-      ip           = "192.168.0.2",
-      port         = 8006,
-      scheme       = "https"
+      domain_names     = ["kamino.${local.domains.hf_domain}"]
+      ip               = "192.168.0.2",
+      port             = 8006,
+      scheme           = "https"
+      access_list_name = "LAN"
 
       ssl = {
         certificate_name = "*.${local.domains.hf_domain}"

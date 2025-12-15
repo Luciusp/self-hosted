@@ -1,3 +1,6 @@
+### Local dev ###
+.env
+
 ### Terraform ###
 # Local .terraform directories
 **/.terraform/*

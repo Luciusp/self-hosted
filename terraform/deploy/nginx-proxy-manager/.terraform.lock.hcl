@@ -5,6 +5,7 @@ provider "registry.opentofu.org/sander0542/nginxproxymanager" {
   version     = "1.1.0"
   constraints = "1.1.0"
   hashes = [
+    "h1:OD2WjTcQHL/3xBdu3HL+OhLCJGTCnS9uKjx7ClQqKWg=",
     "h1:h4lOUyXTWQvdZyBrhzjbvdYj9CnNXlG2hxrHTbI8fWc=",
     "zh:1c25f79a6f6398a7b9044a257f317d445efe17c8f49ae8685abf12ee2302873b",
     "zh:1f0376f0bef9ed44fc9485a6e5d191597f757e7104ed5cdd83a91d803e8b8d92",
