@@ -2,11 +2,11 @@
 
 This document outlines the prerequisites and setup instructions for working with our infrastructure using Terraform (via OpenTofu) and Terragrunt.
 
-
 ## Prerequisites
 
 Ensure the following tools are installed on your machine:
 
+- [bws CLI](https://github.com/bitwarden/sdk-sm/releases/tag/bws-v1.0.0): Bitwarden Secrets CLI for pulling secrets
 - [gcloud CLI](https://cloud.google.com/sdk/docs/install): Google Cloud SDK for authentication and project access.
 - [tofuenv](https://github.com/tofuutils/tofuenv): Version manager for OpenTofu.
 - [terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/): Wrapper for Terraform that provides extra tooling for managing infrastructure.
@@ -18,33 +18,35 @@ Inside `deploy/common.hcl` is a Terraform backend. By default it is set to use G
 
 1. **Authenticate with Google Cloud**
 
-    This grants Terraform access to GCP using your default credentials. Allows for remote backend.
+   This grants Terraform access to GCP using your default credentials. Allows for remote backend.
 
-    ```bash
-    $ gcloud auth application-default login
-    ```
+   ```bash
+   $ gcloud auth application-default login
+   ```
 
 2. **Set your Bitwarden access token**
 
-    This allows Terragrunt to pull secrets from your Bitwarden vault.
+   This allows Terragrunt to pull secrets from your Bitwarden vault.
 
-    ```bash
-    $ export BWS_ACCESS_TOKEN=<your_bitwarden_access_token>
-    ```
+   ```bash
+   $ export BWS_ACCESS_TOKEN=<your_bitwarden_access_token>
+   ```
 
 3. **Install Git hooks**
 
-    Install the pre-commit hooks to ensure code quality and formatting consistency:
+   Install the pre-commit hooks to ensure code quality and formatting consistency:
 
-    ```bash
-    $ pre-commit install
-    ```
+   ```bash
+   $ pre-commit install
+   ```
+
 4. **Install OpenTofu**
 
-    Install the latest version of OpenTofu and use it:
-    ```bash
-    $ tofuenv install <version> && tofuenv use <version>
-    ```
+   Install the latest version of OpenTofu and use it:
+
+   ```bash
+   $ tofuenv install <version> && tofuenv use <version>
+   ```
 
 ## Usage
 
