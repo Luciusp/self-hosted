@@ -152,6 +152,16 @@ inputs = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
+    "paperless" = {
+      domain_names = ["paperless.${local.domains.hf_domain}"]
+      ip           = "192.168.0.3",
+      port         = 8000,
+      scheme       = "http"
+
+      ssl = {
+        certificate_name = "*.${local.domains.hf_domain}"
+      }
+    },
     "pi" = {
       domain_names     = ["pi.${local.domains.hf_domain}"]
       ip               = "192.168.0.216",
