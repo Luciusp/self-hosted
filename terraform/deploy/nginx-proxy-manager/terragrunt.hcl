@@ -1,13 +1,10 @@
 locals {
-  domains = jsondecode(read_tfvars_file("secrets.tfvars"))
+  domains     = jsondecode(read_tfvars_file("secrets.tfvars"))
+  secrets_map = jsondecode(run_cmd("--terragrunt-quiet", "bash", find_in_parent_folders("scripts/get-secrets.sh"), "nginxproxymanager_email", "nginxproxymanager_password", "nginxproxymanager_url", "cloudflare_api_token"))
 }
 
 include {
   path = find_in_parent_folders("common.hcl")
-}
-
-dependency "bitwarden" {
-  config_path = "${get_terragrunt_dir()}/../bitwarden-secrets"
 }
 
 terraform {
@@ -28,9 +25,9 @@ terraform {
 }
 
 provider "nginxproxymanager" {
-    url         = "${dependency.bitwarden.outputs.secrets["nginxproxymanager_url"].value}"
-    username    = "${dependency.bitwarden.outputs.secrets["nginxproxymanager_email"].value}"
-    password    = "${dependency.bitwarden.outputs.secrets["nginxproxymanager_password"].value}"
+    url         = "${local.secrets_map.nginxproxymanager_url}"
+    username    = "${local.secrets_map.nginxproxymanager_email}"
+    password    = "${local.secrets_map.nginxproxymanager_password}"
 }
 EOF
 }
@@ -39,9 +36,9 @@ inputs = {
   ssl_certificates = {
     "hf" = {
       domain_names            = ["*.${local.domains.hf_domain}"]
-      letsencrypt_email       = dependency.bitwarden.outputs.secrets["nginxproxymanager_email"].value
+      letsencrypt_email       = local.secrets_map.nginxproxymanager_email
       dns_provider            = "cloudflare"
-      dns_provider_credential = dependency.bitwarden.outputs.secrets["cloudflare_api_token"].value
+      dns_provider_credential = local.secrets_map.cloudflare_api_token
       credential_prefix       = "dns_cloudflare_api_token="
     }
   }
