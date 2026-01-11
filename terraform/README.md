@@ -6,7 +6,7 @@ This document outlines the prerequisites and setup instructions for working with
 
 Ensure the following tools are installed on your machine:
 
-- [bws CLI](https://github.com/bitwarden/sdk-sm/releases/tag/bws-v1.0.0): Bitwarden Secrets CLI for pulling secrets
+- [bws CLI](https://github.com/bitwarden/sdk-sm/releases/tag/bws-v1.0.0): Bitwarden Secrets CLI for pulling secrets.
 - [gcloud CLI](https://cloud.google.com/sdk/docs/install): Google Cloud SDK for authentication and project access.
 - [tofuenv](https://github.com/tofuutils/tofuenv): Version manager for OpenTofu.
 - [terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/): Wrapper for Terraform that provides extra tooling for managing infrastructure.
