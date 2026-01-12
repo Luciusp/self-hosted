@@ -86,17 +86,6 @@ inputs = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
-    "bazarr" = {
-      domain_names     = ["bazarr.${local.domains.hf_domain}"]
-      ip               = "192.168.0.3",
-      port             = 6767,
-      scheme           = "http"
-      access_list_name = "LAN"
-
-      ssl = {
-        certificate_name = "*.${local.domains.hf_domain}"
-      }
-    },
     "copyparty" = {
       domain_names = ["copy.${local.domains.hf_domain}"]
       ip           = "192.168.0.3",
@@ -117,17 +106,6 @@ inputs = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
-    "hoth" = {
-      domain_names     = ["hoth.${local.domains.hf_domain}"]
-      ip               = "192.168.0.200",
-      port             = 8006,
-      scheme           = "https"
-      access_list_name = "LAN"
-
-      ssl = {
-        certificate_name = "*.${local.domains.hf_domain}"
-      }
-    },
     "kamino" = {
       domain_names     = ["kamino.${local.domains.hf_domain}"]
       ip               = "192.168.0.2",
@@ -139,10 +117,10 @@ inputs = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
-    "overseerr" = {
-      domain_names = ["overseerr.${local.domains.hf_domain}"]
+    "openwebui" = {
+      domain_names = ["owui.${local.domains.hf_domain}"]
       ip           = "192.168.0.3",
-      port         = 5055,
+      port         = 8080,
       scheme       = "http"
 
       ssl = {
@@ -159,8 +137,8 @@ inputs = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
-    "pi" = {
-      domain_names     = ["pi.${local.domains.hf_domain}"]
+    "pihole" = {
+      domain_names     = ["pihole.${local.domains.hf_domain}"]
       ip               = "192.168.0.216",
       port             = 7989,
       scheme           = "http"
@@ -179,69 +157,10 @@ inputs = {
         certificate_name = "*.${local.domains.hf_domain}"
       }
     },
-    "prowlarr" = {
-      domain_names     = ["prowlarr.${local.domains.hf_domain}"]
-      ip               = "192.168.0.3",
-      port             = 9696,
-      scheme           = "http"
-      access_list_name = "LAN"
-
-      ssl = {
-        certificate_name = "*.${local.domains.hf_domain}"
-      }
-    },
-    "radarr" = {
-      domain_names     = ["radarr.${local.domains.hf_domain}"]
-      ip               = "192.168.0.3",
-      port             = 7878,
-      scheme           = "http"
-      access_list_name = "LAN"
-
-      ssl = {
-        certificate_name = "*.${local.domains.hf_domain}"
-      }
-    },
     "router" = {
       domain_names     = ["router.${local.domains.hf_domain}"]
       ip               = "192.168.0.1",
       port             = 80,
-      scheme           = "http"
-      access_list_name = "LAN"
-
-      ssl = {
-        certificate_name = "*.${local.domains.hf_domain}"
-      }
-    },
-    "sab" = {
-      domain_names     = ["sab.${local.domains.hf_domain}"]
-      ip               = "192.168.0.3",
-      port             = 8080,
-      scheme           = "http"
-      access_list_name = "LAN"
-
-      ssl = {
-        force_ssl        = false
-        http2_support    = false
-        hsts_enabled     = false
-        hsts_subdomains  = false
-        certificate_name = "*.${local.domains.hf_domain}"
-      }
-    },
-    "sonarr-anime" = {
-      domain_names     = ["sonarr-anime.${local.domains.hf_domain}"]
-      ip               = "192.168.0.3",
-      port             = 8988,
-      scheme           = "http"
-      access_list_name = "LAN"
-
-      ssl = {
-        certificate_name = "*.${local.domains.hf_domain}"
-      }
-    },
-    "sonarr" = {
-      domain_names     = ["sonarr.${local.domains.hf_domain}"]
-      ip               = "192.168.0.3",
-      port             = 8989,
       scheme           = "http"
       access_list_name = "LAN"
 
@@ -262,8 +181,8 @@ inputs = {
     },
     "wiki" = {
       domain_names     = ["wiki.${local.domains.hf_domain}"]
-      ip               = "192.168.0.3",
-      port             = 80,
+      ip               = "192.168.0.216",
+      port             = 8080,
       scheme           = "http"
       access_list_name = "LAN"
 
