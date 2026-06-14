@@ -1,5 +1,6 @@
 #!/bin/sh
-
+# Get a map of secrets from Bitwarden. Can take any number of secret names
+# as arguments and returns a JSON object with the secret values.
 set -e
 
 if ! command -v bws >/dev/null 2>&1; then
