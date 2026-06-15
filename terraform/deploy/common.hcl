@@ -22,7 +22,9 @@ locals {
             "bitwarden_project_id_lumen",
             "proxmox_endpoint",
             "proxmox_terraform_username",
-            "proxmox_terraform_user_password"
+            "proxmox_terraform_user_password",
+            "cloudflare_api_token",
+            "caddy_host"
         )
     )
     proxmox_endpoint = local.secrets_map.proxmox_endpoint
@@ -33,5 +35,7 @@ locals {
     bitwarden_organization_id = local.secrets_map.bitwarden_organization_id
     bitwarden_project_id_lumen = local.secrets_map.bitwarden_project_id_lumen
 
+    cloudflare_api_token = local.secrets_map.cloudflare_api_token
+    caddy_host = local.secrets_map.caddy_host
     default_gateway = "192.168.0.1"
 }

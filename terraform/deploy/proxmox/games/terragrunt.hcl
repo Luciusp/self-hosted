@@ -13,8 +13,9 @@ inputs = {
   static_ip = "192.168.0.12/24"
   os_template = "debian-13-standard_13.1-2_amd64.tar.zst"
   os_type = "debian"
-  memory_mb = 2048
-  cpu_cores = 2
+  memory_mb = 32768
+  cpu_cores = 8
+  disk_size_gb = 100
 
   proxmox_endpoint = include.locals.proxmox_endpoint
   proxmox_api_token = include.locals.proxmox_api_token
