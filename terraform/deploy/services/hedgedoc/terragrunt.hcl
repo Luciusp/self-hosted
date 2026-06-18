@@ -8,9 +8,13 @@ terraform {
 }
 
 inputs = {
+    domain = "${include.locals.primary_domain_name}.com"
+    subdomain = "hedgedoc"
     service_name = "hedgedoc"
     service_privacy = "public"
+
+    ip_target = include.locals.caddy_ip
     registrar_api_token = include.locals.cloudflare_api_token
-    domain = "hollowforge.com"
-    subdomain = "hedgedoc"
+    pihole_host = "http://${include.locals.pihole_host}"
+    pihole_password = include.locals.pihole_password
 }

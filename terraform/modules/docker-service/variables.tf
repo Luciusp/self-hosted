@@ -11,7 +11,11 @@ variable "registrar_api_token" {
   type = string
 }
 
-variable "caddy_host" {
+variable "pihole_host" {
+  type = string
+}
+
+variable "pihole_password" {
   type = string
 }
 
@@ -20,6 +24,10 @@ variable "domain" {
 }
 
 variable "subdomain" {
+  type = string
+}
+
+variable "ip_target" {
   type = string
 }
 

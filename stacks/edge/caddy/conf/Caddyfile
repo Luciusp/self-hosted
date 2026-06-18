@@ -1,0 +1,20 @@
+{
+    admin 0.0.0.0:2019 {
+        origins localhost:2019 127.0.0.1:2019 0.0.0.0:2019
+    }
+}
+
+kamino.lan.{env.DOMAIN} {
+    @denied not client_ip private_ranges
+    abort @denied
+
+    reverse_proxy https://192.168.0.2:8006 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
+
+hedgedoc.{env.DOMAIN} {
+    reverse_proxy 192.168.0.5:3000
+}

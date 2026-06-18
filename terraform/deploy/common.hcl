@@ -24,7 +24,9 @@ locals {
             "proxmox_terraform_username",
             "proxmox_terraform_user_password",
             "cloudflare_api_token",
-            "caddy_host"
+            "pihole_host",
+            "pihole_password",
+            "primary_domain_name"
         )
     )
     proxmox_endpoint = local.secrets_map.proxmox_endpoint
@@ -36,6 +38,9 @@ locals {
     bitwarden_project_id_lumen = local.secrets_map.bitwarden_project_id_lumen
 
     cloudflare_api_token = local.secrets_map.cloudflare_api_token
-    caddy_host = local.secrets_map.caddy_host
+    pihole_host = local.secrets_map.pihole_host
+    pihole_password = local.secrets_map.pihole_password
+    primary_domain_name = local.secrets_map.primary_domain_name
     default_gateway = "192.168.0.1"
+    caddy_ip = "192.168.0.216"
 }
