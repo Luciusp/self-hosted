@@ -115,3 +115,9 @@ variable "cpu_arch" {
     error_message = "CPU architecture must be amd64, arm64, armhf, or i386."
   }
 }
+
+variable "init_script_path" {
+  description = "The path to the init script to run on the LXC container"
+  type        = string
+
+}

@@ -22,7 +22,14 @@ provider "registry.opentofu.org/lukaspustina/pihole" {
   version     = "0.3.1"
   constraints = "0.3.1"
   hashes = [
+    "h1:HpcFNKt7WSs8ZAvQOWB43+U6Zl88j7QSCsCilvK4D6w=",
+    "h1:JXjH8cpcGBYH2mzLCfinSU8Af3AwUNZ/bR53QHtgAnI=",
+    "h1:NtDgRyp3e0wfvW5Z5ldAC+MRfFqGuMeve07hDhVfExs=",
     "h1:T2YRCUJmGkT2BhOXvc8+ZftxBQ6V6yDkB/wFlrhtDtc=",
+    "h1:XHbWMqTeVnI9ZNNzY+BlvXr+H+QraX+NHC8OsG+0BQQ=",
+    "h1:fbSYioeDgMtpVRYQdQ0VGcWgMLUk0wyHZgqxMFB7obI=",
+    "h1:sM1Je39vVkm3HlPvcWAfKOzCMyLep8FW7HU0bWIWiok=",
+    "h1:wTRp1VpYKLawGqptpbDpR/gJ2kSTSi6bkq46wEoW6H0=",
     "zh:018676acace2859a45eeabf97a36f24e32da56b6257ce63bab6b994837124908",
     "zh:17ecb7f786cccb0bb1a412244f00077fc016ce3213906aef0052b8cb18bf9a46",
     "zh:336d1a797beead74a9e3c213c3c25c8e659626699831886a7fb26c9ffd653b37",

@@ -21,7 +21,7 @@ fi
 secrets_json=$(bws secret list --output json)
 
 # Build JSON object with requested secrets
-echo "$secrets_json" | jq -n --argjson secrets "$(cat)" --args \
+jq -n --argjson secrets "$secrets_json" --args \
     'reduce $ARGS.positional[] as $name ({};
         . + {($name): ($secrets[] | select(.key == $name) | .value // "")}
     )' -- "$@"

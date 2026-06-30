@@ -73,6 +73,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   }
 }
 
+# Default initialization that always runs. Installs docker and komodo periphery
 resource "null_resource" "lxc_init" {
   depends_on = [proxmox_virtual_environment_container.lxc]
 
@@ -84,32 +85,80 @@ resource "null_resource" "lxc_init" {
     timeout     = "5m"
   }
 
+  provisioner "remote-exec" {
+    inline = [
+      "useradd -m -s /bin/bash docker-lxc",
+      "mkdir -p /home/docker-lxc/.ssh",
+      "echo '${trimspace(tls_private_key.docker_lxc_user_key.public_key_openssh)}' > /home/docker-lxc/.ssh/authorized_keys",
+      "chmod 700 /home/docker-lxc/.ssh",
+      "chmod 600 /home/docker-lxc/.ssh/authorized_keys",
+      "chown -R docker-lxc:docker-lxc /home/docker-lxc/.ssh"
+    ]
+  }
+
   provisioner "file" {
-    source      = "${path.module}/init-docker-lxc.sh"
-    destination = "/tmp/init-docker-lxc.sh"
+    source      = "${path.module}/init.sh"
+    destination = "/tmp/init.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "chmod +x /tmp/init-docker-lxc.sh",
-      "/tmp/init-docker-lxc.sh"
+      "chmod +x /tmp/init.sh",
+      "/tmp/init.sh"
     ]
   }
 }
 
+# User-provided script that gets run after the default initialization
+resource "null_resource" "lxc_custom_init" {
+  count      = var.init_script_path != "" ? 1 : 0
+  depends_on = [proxmox_virtual_environment_container.lxc, null_resource.lxc_init]
+
+  connection {
+    type        = "ssh"
+    host        = split("/", var.static_ip)[0]
+    user        = "root"
+    private_key = tls_private_key.lxc_key.private_key_openssh
+    timeout     = "5m"
+  }
+
+  provisioner "file" {
+    source      = var.init_script_path
+    destination = "/tmp/custom-init.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /tmp/custom-init.sh",
+      "/tmp/custom-init.sh"
+    ]
+  }
+}
+
+# Generates key for root user
 resource "tls_private_key" "lxc_key" {
   algorithm = "RSA"
   rsa_bits  = 2048
 }
 
-resource "bitwarden-secrets_secret" "lxc_ssh_key" {
+# Generates key for docker-lxc user
+resource "tls_private_key" "docker_lxc_user_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+resource "bitwarden-secrets_secret" "lxc_ssh_key_root" {
   depends_on = [proxmox_virtual_environment_container.lxc]
-  key        = "lxc-ssh-key-private-${var.lxc_name}"
+  key        = "lxc-ssh-key-private-${var.lxc_name}-root"
   value      = tls_private_key.lxc_key.private_key_pem
   note       = "The secret value was provided via terraform configuration"
   project_id = "45fa2894-789a-431e-afb5-b2de01285f45"
 }
 
-output "ssh_key_public" {
-  value = tls_private_key.lxc_key.public_key_openssh
+resource "bitwarden-secrets_secret" "lxc_ssh_key_docker_lxc_user" {
+  depends_on = [proxmox_virtual_environment_container.lxc]
+  key        = "lxc-ssh-key-private-${var.lxc_name}-docker-lxc"
+  value      = tls_private_key.docker_lxc_user_key.private_key_pem
+  note       = "The secret value was provided via terraform configuration"
+  project_id = "45fa2894-789a-431e-afb5-b2de01285f45"
 }

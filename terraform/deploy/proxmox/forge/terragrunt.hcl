@@ -15,6 +15,7 @@ inputs = {
   os_type = "debian"
   memory_mb = 2048
   cpu_cores = 2
+  init_script_path = "${get_terragrunt_dir()}/init.sh"
 
   proxmox_endpoint = include.locals.proxmox_endpoint
   proxmox_api_token = include.locals.proxmox_api_token
