@@ -16,6 +16,10 @@ kamino.lan.{$DOMAIN} {
     }
 }
 
+auth.{$DOMAIN} {
+    reverse_proxy 192.168.0.216:9000
+}
+
 hedgedoc.{$DOMAIN} {
     reverse_proxy 192.168.0.5:3000
 }
