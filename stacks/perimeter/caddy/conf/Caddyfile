@@ -2,9 +2,10 @@
     admin 0.0.0.0:2019 {
         origins localhost:2019 127.0.0.1:2019 0.0.0.0:2019
     }
+    acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
 }
 
-kamino.lan.{env.DOMAIN} {
+kamino.lan.{$DOMAIN} {
     @denied not client_ip private_ranges
     abort @denied
 
@@ -15,6 +16,6 @@ kamino.lan.{env.DOMAIN} {
     }
 }
 
-hedgedoc.{env.DOMAIN} {
+hedgedoc.{$DOMAIN} {
     reverse_proxy 192.168.0.5:3000
 }

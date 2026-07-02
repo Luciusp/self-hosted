@@ -1,6 +1,6 @@
 #!/bin/bash
-# SSH into a Proxmox LXC container as docker-lxc using its name.
-# Usage: prox-ssh <lxc-name>
+# SSH into a Proxmox LXC container using its name.
+# Usage: prox-ssh <lxc-name> [root]
 
 if ! command -v bws >/dev/null 2>&1; then
     echo "Error: bws command not found" >&2
@@ -17,12 +17,13 @@ if ! command -v python3 >/dev/null 2>&1; then
     exit 1
 fi
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <lxc-name>" >&2
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    echo "Usage: $0 <lxc-name> [root]" >&2
     exit 1
 fi
 
 LXC_NAME=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+SSH_USER=${2:-docker-lxc}
 
 # bws outputs literal newlines inside JSON strings (invalid JSON); python3 handles this.
 # All secrets are fetched in one call and delimited with ---END--- for safe multiline splitting.
@@ -38,7 +39,7 @@ if missing:
 for k in keys:
     print(by_key[k])
     print('---END---')
-" "proxmox_endpoint" "proxmox_terraform_token" "lxc-ssh-key-private-${LXC_NAME}-docker-lxc") || exit 1
+" "proxmox_endpoint" "proxmox_terraform_token" "lxc-ssh-key-private-${LXC_NAME}-${SSH_USER}") || exit 1
 
 PROXMOX_ENDPOINT=$(echo "$BWS_EXTRACTED" | awk '/---END---/{found++; next} found==0{print}')
 PROXMOX_TOKEN=$(echo "$BWS_EXTRACTED"    | awk '/---END---/{found++; next} found==1{print}')
@@ -76,7 +77,7 @@ if [ -z "$IP" ]; then
     exit 1
 fi
 
-echo "Connecting to ${LXC_NAME} (${IP}) as docker-lxc..."
+echo "Connecting to ${LXC_NAME} (${IP}) as ${SSH_USER}..."
 
 KEY_FILE=$(mktemp)
 chmod 600 "$KEY_FILE"
@@ -86,4 +87,4 @@ printf '%s\n' "$SSH_KEY" > "$KEY_FILE"
 ssh -i "$KEY_FILE" \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
-    "docker-lxc@${IP}"
+    "${SSH_USER}@${IP}"

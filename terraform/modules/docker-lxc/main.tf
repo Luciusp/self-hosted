@@ -97,14 +97,14 @@ resource "null_resource" "lxc_init" {
   }
 
   provisioner "file" {
-    source      = "${path.module}/init.sh"
-    destination = "/tmp/init.sh"
+    source      = "${path.module}/docker-init.sh"
+    destination = "/tmp/docker-init.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "chmod +x /tmp/init.sh",
-      "/tmp/init.sh"
+      "chmod +x /tmp/docker-init.sh",
+      "/tmp/docker-init.sh"
     ]
   }
 }

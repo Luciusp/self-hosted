@@ -55,14 +55,15 @@ Cloudflare); traffic flows Pi-hole DNS → Caddy → the service's static IP and
 port. Still uses the same domain so Caddy can issue automatic
 HTTPS certificates.
 
-**Edge**:
+**Perimeter**:
 The always-on RPi4 (`192.168.0.216`) that sits outside the Proxmox stack and
 owns the entire north-south path: Caddy (reverse proxy), Pi-hole (Private
-Service DNS), and the Cloudflare DDNS client. Its uptime is independent of the
-Proxmox node.
+Service DNS), Cloudflare DDNS client, and Authentik (identity provider). Its
+uptime is independent of the Proxmox node. Managed manually — not provisioned
+via Terraform/IaC.
 
 **Caddy**:
-The single reverse proxy for all north-south traffic, running on the Edge.
+The single reverse proxy for all north-south traffic, running on the Perimeter.
 Terminates HTTPS and routes both public and private hostnames to service
 static IPs.
 

@@ -1,6 +1,6 @@
 # Two-tier service exposure: public via Cloudflare, private via Pi-hole + Tailscale
 
-Every service is either a Public Service or a Private Service. All north-south traffic terminates at Caddy on the external RPi4 (`192.168.0.216`), which routes by hostname to a service's static IP and port.
+Every service is either a Public Service or a Private Service. All north-south traffic terminates at Caddy on the Perimeter, which routes by hostname to a service's static IP and port.
 
 - **Public**: `<service>.<domain>`, published to Cloudflare as a proxied
   (orange-cloud) record. Flow: Cloudflare proxy → Caddy → static IP:port.

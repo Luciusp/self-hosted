@@ -1,6 +1,6 @@
 services:
   caddy:
-    image: caddy:latest
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
     restart: unless-stopped
     ports:
       - "80:80"
@@ -9,8 +9,6 @@ services:
       - "2019:2019" # Allows API listening outside the container
     env_file:
       - .env
-    environment:
-      - DOMAIN=${DOMAIN}
     volumes:
       - ./conf:/etc/caddy
       - ./site:/srv

@@ -23,10 +23,10 @@ services:
         # Run the updater with user ID 1000
       - PGID=1000
         # Run the updater with group ID 1000
-      - CF_API_TOKEN=${CF_API_TOKEN}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
         # Your Cloudflare API token
       - DOMAINS=${DOMAINS}
         # Your domains (separated by commas)
       - IP6_PROVIDER=none
-        #- PROXIED=true
+      - PROXIED=true
         # Tell Cloudflare to cache webpages and hide your IP
