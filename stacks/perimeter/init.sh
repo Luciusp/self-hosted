@@ -251,7 +251,10 @@ PERIMETER_CONFIG=$(jq -n \
 	--arg caddy_host "${PERIMETER_IP}:2019" \
 	--arg primary_host "${DOMAIN}" \
 	--arg pihole_host "${PERIMETER_IP}:7989" \
-	'{caddy_host: $caddy_host, primary_host_name: $primary_host, pihole_host: $pihole_host}')
+	--arg perimeter_ip "${PERIMETER_IP}" \
+	--arg proxmox_ip "${PROXMOX_IP}" \
+	--arg proxmox_port "${PROXMOX_PORT}" \
+	'{caddy_host: $caddy_host, primary_host_name: $primary_host, pihole_host: $pihole_host, perimeter_ip: $perimeter_ip, proxmox_ip: $proxmox_ip, proxmox_port: $proxmox_port}')
 bws_set "perimeter/config" "$PERIMETER_CONFIG"
 info "Config JSON stored in BWS as perimeter/config"
 
@@ -320,6 +323,9 @@ success "authentik/.env written"
 rpi "tee \$HOME/servers/caddy/.env > /dev/null" <<EOF
 DOMAIN='${DOMAIN}'
 CLOUDFLARE_API_TOKEN='${CF_API_TOKEN}'
+PERIMETER_IP='${PERIMETER_IP}'
+PROXMOX_IP='${PROXMOX_IP}'
+PROXMOX_PORT='${PROXMOX_PORT}'
 EOF
 success "caddy/.env written"
 
@@ -336,42 +342,6 @@ CLOUDFLARE_API_TOKEN='${CF_API_TOKEN}'
 DOMAINS='${DOMAIN}'
 EOF
 success "cloudflare-ddns/.env written"
-
-# ─── PHASE 4: RENDER CADDYFILE ──────────────────────────────────────────────
-echo ""
-info "Writing Caddyfile on RPi..."
-
-rpi "tee \$HOME/servers/caddy/conf/Caddyfile > /dev/null" <<EOF
-{
-    admin 0.0.0.0:2019 {
-        origins localhost:2019 127.0.0.1:2019 0.0.0.0:2019
-    }
-    acme_dns cloudflare {\$CLOUDFLARE_API_TOKEN}
-}
-
-proxmox.lan.${DOMAIN} {
-    @denied not client_ip private_ranges
-    abort @denied
-
-    reverse_proxy https://${PROXMOX_IP}:${PROXMOX_PORT} {
-        transport http {
-            tls_insecure_skip_verify
-        }
-    }
-}
-
-auth.${DOMAIN} {
-    reverse_proxy localhost:9000
-}
-
-pihole.lan.${DOMAIN} {
-    @denied not client_ip private_ranges
-    abort @denied
-
-    reverse_proxy localhost:7989
-}
-EOF
-success "Caddyfile written"
 
 # ─── PHASE 5: START STACKS ──────────────────────────────────────────────────
 echo ""
@@ -531,6 +501,10 @@ BOOTSTRAP_TOKEN=$(bws_get    "perimeter/authentik/bootstrap_token")
 PIHOLE_PASSWORD=$(bws_get    "perimeter/pihole/api_password")
 CF_API_TOKEN=$(bws_get       "perimeter/cloudflare/api_token")
 DOMAIN=$(bws_get             "perimeter/cloudflare/domain")
+PERIMETER_CONFIG=$(bws_get   "perimeter/config")
+PERIMETER_IP=$(echo "$PERIMETER_CONFIG" | jq -r '.perimeter_ip // empty')
+PROXMOX_IP=$(echo "$PERIMETER_CONFIG" | jq -r '.proxmox_ip // empty')
+PROXMOX_PORT=$(echo "$PERIMETER_CONFIG" | jq -r '.proxmox_port // empty')
 TZ_INPUT=$(cat "${STACK_BASE}/pihole/.env" 2>/dev/null | grep '^TZ=' | cut -d= -f2 | tr -d "'" || echo "America/Los_Angeles")
 
 cat > "${STACK_BASE}/authentik/.env" <<EOF
@@ -548,6 +522,9 @@ EOF
 cat > "${STACK_BASE}/caddy/.env" <<EOF
 DOMAIN='${DOMAIN}'
 CLOUDFLARE_API_TOKEN='${CF_API_TOKEN}'
+PERIMETER_IP='${PERIMETER_IP}'
+PROXMOX_IP='${PROXMOX_IP}'
+PROXMOX_PORT='${PROXMOX_PORT}'
 EOF
 
 cat > "${STACK_BASE}/pihole/.env" <<EOF

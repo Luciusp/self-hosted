@@ -9,7 +9,7 @@ proxmox.lan.{$DOMAIN} {
     @denied not client_ip private_ranges
     abort @denied
 
-    reverse_proxy https://192.168.0.2:8006 {
+    reverse_proxy https://{$PROXMOX_IP}:{$PROXMOX_PORT} {
         transport http {
             tls_insecure_skip_verify
         }
@@ -20,9 +20,9 @@ pihole.lan.{$DOMAIN} {
     @denied not client_ip private_ranges
     abort @denied
 
-    reverse_proxy 192.168.0.216:7989
+    reverse_proxy {$PERIMETER_IP}:7989
 }
 
 auth.{$DOMAIN} {
-    reverse_proxy 192.168.0.216:9000
+    reverse_proxy {$PERIMETER_IP}:9000
 }
