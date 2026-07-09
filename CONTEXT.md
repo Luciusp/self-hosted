@@ -9,8 +9,8 @@ purpose-grouped LXC container provisioned by Terraform/Terragrunt.
 
 **LXC Domain**:
 A single LXC container that acts as a Docker host for a group of functionally
-related services. The unit of provisioning. There are six: `ai`, `forge`,
-`store`, `services`, `security`, `games`.
+related services. The unit of provisioning. There are five: `ai`, `forge`,
+`store`, `services`, `games`.
 _Avoid_: VM, host, node (a "node" is the Proxmox machine itself)
 
 **Bare LXC**:
@@ -58,9 +58,9 @@ HTTPS certificates.
 **Perimeter**:
 The always-on RPi4 (`192.168.0.216`) that sits outside the Proxmox stack and
 owns the entire north-south path: Caddy (reverse proxy), Pi-hole (Private
-Service DNS), Cloudflare DDNS client, and Authentik (identity provider). Its
-uptime is independent of the Proxmox node. Managed manually — not provisioned
-via Terraform/IaC.
+Service DNS), Cloudflare DDNS client, Authentik (identity provider), and
+Tailscale (VPN). Its uptime is independent of the Proxmox node. Managed
+manually — not provisioned via Terraform/IaC.
 
 **Caddy**:
 The single reverse proxy for all north-south traffic, running on the Perimeter.

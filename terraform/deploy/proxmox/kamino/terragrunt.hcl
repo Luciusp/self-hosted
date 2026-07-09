@@ -4,14 +4,14 @@ include {
 }
 
 terraform {
-  source = find_in_parent_folders("modules/docker-service")
+  source = find_in_parent_folders("modules/dns")
 }
 
 inputs = {
     domain = "${include.locals.primary_domain_name}.com"
-    subdomain = "auth"
-    service_name = "authentik"
-    service_privacy = "public"
+    subdomain = "kamino"
+    service_name = "kamino"
+    service_privacy = "private"
 
     ip_target = include.locals.caddy_ip
     registrar_api_token = include.locals.cloudflare_api_token
