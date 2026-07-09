@@ -90,7 +90,7 @@ rpi() { ssh -o StrictHostKeyChecking=no -i "${SSH_KEY_FILE}" "${SSH_USER}@${PERI
 
 # ─── wait_healthy URL ────────────────────────────────────────────────────────
 wait_healthy() {
-	local url="$1" label="${2:-service}" timeout=120 elapsed=0
+	local url="$1" label="${2:-service}" timeout=600 elapsed=0
 	info "Waiting for $label to be healthy ($url)..."
 	until curl -sf --max-time 5 "$url" >/dev/null 2>&1; do
 		sleep 5
@@ -168,6 +168,10 @@ if [[ -z "${TZ_INPUT:-}" ]]; then
 	read -rp "Timezone [America/Los_Angeles]: " TZ_INPUT
 fi
 TZ_INPUT="${TZ_INPUT:-America/Los_Angeles}"
+if [[ -z "${ADMIN_EMAIL:-}" ]]; then
+	read -rp "Admin email (for Authentik akadmin): " ADMIN_EMAIL
+fi
+[[ -n "$ADMIN_EMAIL" ]] || die "Admin email is required"
 
 # ─── PHASE 0c: SSH KEY BOOTSTRAP ────────────────────────────────────────────
 echo ""
@@ -225,6 +229,7 @@ info "Resolving secrets (generating new ones only where needed)..."
 PG_PASS=$(resolve_secret "perimeter/authentik/pg_pass" "openssl rand -base64 32 | tr -d '\n'")
 AUTHENTIK_SECRET_KEY=$(resolve_secret "perimeter/authentik/secret_key" "openssl rand -base64 60 | tr -d '\n'")
 BOOTSTRAP_TOKEN=$(resolve_secret "perimeter/authentik/bootstrap_token" "openssl rand -hex 32")
+BOOTSTRAP_PASSWORD=$(resolve_secret "perimeter/authentik/bootstrap_password" "openssl rand -base64 24 | tr -d '\n'")
 PIHOLE_PASSWORD=$(resolve_secret "perimeter/pihole/api_password" "openssl rand -base64 24 | tr -d '\n'")
 
 # Store user-provided values idempotently
@@ -246,6 +251,15 @@ else
 	DOMAIN="$_stored_domain"
 fi
 
+_stored_email=$(bws_get "perimeter/authentik/admin_email")
+if [[ -z "$_stored_email" ]]; then
+	bws_set "perimeter/authentik/admin_email" "$ADMIN_EMAIL"
+	info "Stored: perimeter/authentik/admin_email"
+else
+	info "Already stored: perimeter/authentik/admin_email"
+	ADMIN_EMAIL="$_stored_email"
+fi
+
 # Write/update the perimeter config JSON (always kept in sync with current values)
 PERIMETER_CONFIG=$(jq -n \
 	--arg caddy_host "${PERIMETER_IP}:2019" \
@@ -254,7 +268,8 @@ PERIMETER_CONFIG=$(jq -n \
 	--arg perimeter_ip "${PERIMETER_IP}" \
 	--arg proxmox_ip "${PROXMOX_IP}" \
 	--arg proxmox_port "${PROXMOX_PORT}" \
-	'{caddy_host: $caddy_host, primary_host_name: $primary_host, pihole_host: $pihole_host, perimeter_ip: $perimeter_ip, proxmox_ip: $proxmox_ip, proxmox_port: $proxmox_port}')
+	--arg admin_email "${ADMIN_EMAIL}" \
+	'{caddy_host: $caddy_host, primary_host_name: $primary_host, pihole_host: $pihole_host, perimeter_ip: $perimeter_ip, proxmox_ip: $proxmox_ip, proxmox_port: $proxmox_port, admin_email: $admin_email}')
 bws_set "perimeter/config" "$PERIMETER_CONFIG"
 info "Config JSON stored in BWS as perimeter/config"
 
@@ -310,8 +325,10 @@ AUTHENTIK_SECRET_KEY='${AUTHENTIK_SECRET_KEY}'
 AUTHENTIK_IMAGE='ghcr.io/goauthentik/server'
 AUTHENTIK_TAG='2026.5.3'
 
-# Bootstrap (first-start only — seeds akadmin API token)
+# Bootstrap (first-start only — seeds akadmin account & API token)
+AUTHENTIK_BOOTSTRAP_PASSWORD='${BOOTSTRAP_PASSWORD}'
 AUTHENTIK_BOOTSTRAP_TOKEN='${BOOTSTRAP_TOKEN}'
+AUTHENTIK_BOOTSTRAP_EMAIL='akadmin@${DOMAIN}'
 
 # Ports
 COMPOSE_PORT_HTTP='9000'
@@ -498,6 +515,7 @@ STACK_BASE="$HOME/servers"
 PG_PASS=$(bws_get            "perimeter/authentik/pg_pass")
 AUTHENTIK_SECRET_KEY=$(bws_get "perimeter/authentik/secret_key")
 BOOTSTRAP_TOKEN=$(bws_get    "perimeter/authentik/bootstrap_token")
+BOOTSTRAP_PASSWORD=$(bws_get "perimeter/authentik/bootstrap_password")
 PIHOLE_PASSWORD=$(bws_get    "perimeter/pihole/api_password")
 CF_API_TOKEN=$(bws_get       "perimeter/cloudflare/api_token")
 DOMAIN=$(bws_get             "perimeter/cloudflare/domain")
@@ -505,6 +523,7 @@ PERIMETER_CONFIG=$(bws_get   "perimeter/config")
 PERIMETER_IP=$(echo "$PERIMETER_CONFIG" | jq -r '.perimeter_ip // empty')
 PROXMOX_IP=$(echo "$PERIMETER_CONFIG" | jq -r '.proxmox_ip // empty')
 PROXMOX_PORT=$(echo "$PERIMETER_CONFIG" | jq -r '.proxmox_port // empty')
+ADMIN_EMAIL=$(echo "$PERIMETER_CONFIG" | jq -r '.admin_email // empty')
 TZ_INPUT=$(cat "${STACK_BASE}/pihole/.env" 2>/dev/null | grep '^TZ=' | cut -d= -f2 | tr -d "'" || echo "America/Los_Angeles")
 
 cat > "${STACK_BASE}/authentik/.env" <<EOF
@@ -514,7 +533,9 @@ PG_PASS='${PG_PASS}'
 AUTHENTIK_SECRET_KEY='${AUTHENTIK_SECRET_KEY}'
 AUTHENTIK_IMAGE='ghcr.io/goauthentik/server'
 AUTHENTIK_TAG='2026.5.3'
+AUTHENTIK_BOOTSTRAP_PASSWORD='${BOOTSTRAP_PASSWORD}'
 AUTHENTIK_BOOTSTRAP_TOKEN='${BOOTSTRAP_TOKEN}'
+AUTHENTIK_BOOTSTRAP_EMAIL='${ADMIN_EMAIL}'
 COMPOSE_PORT_HTTP='9000'
 COMPOSE_PORT_HTTPS='9443'
 EOF
@@ -568,7 +589,8 @@ echo -e "  • https://proxmox.lan.${DOMAIN}  (LAN only)"
 echo -e "  • https://pihole.lan.${DOMAIN}  (LAN only)"
 echo ""
 echo -e "  ${CYAN}Next steps:${NC}"
-echo -e "  1. Complete Authentik initial setup: http://${PERIMETER_IP}:9000/if/flow/initial-setup/"
+echo -e "  1. Log in to Authentik at https://auth.${DOMAIN}/if/flow/default-authentication-flow/?next=%2F"
+echo -e "     User: akadmin@${DOMAIN}  |  Password: perimeter/authentik/bootstrap_password in BWS"
 echo -e "  2. Set your router's DNS server to ${PERIMETER_IP} (Pi-hole)"
 echo -e "  3. Run 'terraform apply' in terraform/deploy/perimeter/authentik/"
 echo -e "     (uses BWS secret: perimeter/authentik/api_token_tf)"
