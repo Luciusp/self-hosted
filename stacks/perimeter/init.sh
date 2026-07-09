@@ -230,7 +230,6 @@ PG_PASS=$(resolve_secret "perimeter/authentik/pg_pass" "openssl rand -base64 32 
 AUTHENTIK_SECRET_KEY=$(resolve_secret "perimeter/authentik/secret_key" "openssl rand -base64 60 | tr -d '\n'")
 BOOTSTRAP_TOKEN=$(resolve_secret "perimeter/authentik/bootstrap_token" "openssl rand -hex 32")
 BOOTSTRAP_PASSWORD=$(resolve_secret "perimeter/authentik/bootstrap_password" "openssl rand -base64 24 | tr -d '\n'")
-PIHOLE_PASSWORD=$(resolve_secret "perimeter/pihole/api_password" "openssl rand -base64 24 | tr -d '\n'")
 
 # Store user-provided values idempotently
 _stored_cf=$(bws_get "perimeter/cloudflare/api_token")
@@ -264,7 +263,7 @@ fi
 PERIMETER_CONFIG=$(jq -n \
 	--arg caddy_host "${PERIMETER_IP}:2019" \
 	--arg primary_host "${DOMAIN}" \
-	--arg pihole_host "${PERIMETER_IP}:7989" \
+	--arg pihole_host "pihole:80" \
 	--arg perimeter_ip "${PERIMETER_IP}" \
 	--arg proxmox_ip "${PROXMOX_IP}" \
 	--arg proxmox_port "${PROXMOX_PORT}" \
@@ -349,7 +348,6 @@ success "caddy/.env written"
 # pihole/.env
 rpi "tee \$HOME/servers/pihole/.env > /dev/null" <<EOF
 TZ='${TZ_INPUT}'
-FTLCONF_WEBSERVER_API_PASSWORD='${PIHOLE_PASSWORD}'
 EOF
 success "pihole/.env written"
 
@@ -359,6 +357,12 @@ CLOUDFLARE_API_TOKEN='${CF_API_TOKEN}'
 DOMAINS='${DOMAIN}'
 EOF
 success "cloudflare-ddns/.env written"
+
+# ─── PHASE 4: CREATE DOCKER NETWORK ─────────────────────────────────────────
+echo ""
+info "Creating perimeter_internal Docker network on RPi..."
+rpi "docker network inspect perimeter_internal >/dev/null 2>&1 || docker network create perimeter_internal"
+success "perimeter_internal network ready"
 
 # ─── PHASE 5: START STACKS ──────────────────────────────────────────────────
 echo ""
@@ -372,18 +376,20 @@ for stack in authentik caddy pihole cloudflare-ddns; do
 done
 
 # ─── PHASE 6: CONFIGURE PI-HOLE DNS ─────────────────────────────────────────
+# Pi-hole's web port is no longer published to the host (ADR 0010); all API
+# calls run inside the container via docker exec over SSH. No auth headers
+# needed — the password is disabled (ADR 0004).
 echo ""
 info "Waiting for Pi-hole to be ready..."
-wait_healthy "http://${PERIMETER_IP}:7989/api/docs" "Pi-hole"
-
-info "Authenticating to Pi-hole API..."
-PIHOLE_AUTH_RESP=$(curl -sf -X POST \
-	-H "Content-Type: application/json" \
-	"http://${PERIMETER_IP}:7989/api/auth" \
-	-d "{\"password\":\"${PIHOLE_PASSWORD}\"}")
-PIHOLE_SESSION=$(echo "$PIHOLE_AUTH_RESP" | jq -r '.session.sid // empty')
-[[ -n "$PIHOLE_SESSION" ]] || die "Pi-hole authentication failed"
-success "Pi-hole session established"
+elapsed=0
+until rpi "docker exec pihole curl -sf http://localhost:80/api/docs" >/dev/null 2>&1; do
+	sleep 5
+	elapsed=$((elapsed + 5))
+	[[ $elapsed -ge 600 ]] && die "Pi-hole did not become healthy within 600s"
+	echo -n "."
+done
+echo ""
+success "Pi-hole is healthy"
 
 # Helper: add DNS record if not already present
 # Pi-hole API v6 stores custom DNS as hosts entries under /api/config/dns/hosts
@@ -391,17 +397,13 @@ success "Pi-hole session established"
 pihole_add_dns() {
 	local hostname="$1" ip="$2"
 	local existing
-	existing=$(curl -sf \
-		-H "X-FTL-SID: ${PIHOLE_SESSION}" \
-		"http://${PERIMETER_IP}:7989/api/config/dns/hosts" 2>/dev/null |
+	existing=$(rpi "docker exec pihole curl -sf http://localhost:80/api/config/dns/hosts" 2>/dev/null |
 		jq -r --arg h "$hostname" '.config.dns.hosts[]? | select(test("\\s\($h)$"))' 2>/dev/null |
 		head -1 || true)
 	if [[ -n "$existing" ]]; then
 		info "DNS record already exists: $hostname → $ip"
 	else
-		curl -sf -X PUT \
-			-H "X-FTL-SID: ${PIHOLE_SESSION}" \
-			"http://${PERIMETER_IP}:7989/api/config/dns/hosts/$(jq -nr --arg v "${ip} ${hostname}" '$v | @uri')" >/dev/null
+		rpi "docker exec pihole curl -sf -X PUT http://localhost:80/api/config/dns/hosts/$(jq -nr --arg v "${ip} ${hostname}" '$v | @uri')" >/dev/null
 		success "DNS record added: $hostname → $ip"
 	fi
 }
@@ -479,6 +481,104 @@ AUTHENTIK_API_TOKEN=$(echo "$KEY_RESP" | jq -r '.key // empty')
 bws_set "perimeter/authentik/api_token_tf" "$AUTHENTIK_API_TOKEN"
 success "authentik_api_token_tf key stored in BWS as perimeter/authentik/api_token_tf"
 
+# ─── PHASE 6d: CREATE AUTHENTIK PROXY PROVIDER FOR PI-HOLE ───────────────────
+# Pi-hole has no native Authentik integration, so we use forward-auth (ADR 0004).
+# Creates a proxy provider + application in Authentik and assigns it to the
+# embedded outpost so Caddy's forward_auth directive can gate access.
+echo ""
+info "Configuring Authentik proxy provider for Pi-hole..."
+
+# Fetch flow UUIDs by slug
+AUTH_FLOW_UUID=$(curl -sf \
+	-H "$AUTH_HEADER" \
+	"${AUTHENTIK_API}/flows/?slug=default-provider-authorization-implicit-consent" |
+	jq -r '.results[0].pk // empty')
+[[ -n "$AUTH_FLOW_UUID" ]] || die "Could not find default-provider-authorization-implicit-consent flow"
+
+INVALIDATION_FLOW_UUID=$(curl -sf \
+	-H "$AUTH_HEADER" \
+	"${AUTHENTIK_API}/flows/?slug=default-provider-invalidation-flow" |
+	jq -r '.results[0].pk // empty')
+[[ -n "$INVALIDATION_FLOW_UUID" ]] || die "Could not find default-provider-invalidation-flow flow"
+
+# Check if proxy provider already exists
+PIHOLE_PROVIDER_ID=$(curl -s -o /dev/null -w "%{http_code}" \
+	-H "$AUTH_HEADER" \
+	"${AUTHENTIK_API}/providers/proxy/?name=Pi-hole")
+
+if [[ "$PIHOLE_PROVIDER_ID" == "200" ]]; then
+	PIHOLE_PROVIDER_ID=$(curl -sf \
+		-H "$AUTH_HEADER" \
+		"${AUTHENTIK_API}/providers/proxy/?name=Pi-hole" |
+		jq -r '.results[0].pk // empty')
+	info "Proxy provider 'Pi-hole' already exists (id: ${PIHOLE_PROVIDER_ID})"
+else
+	info "Creating proxy provider 'Pi-hole'..."
+	PROVIDER_RESP=$(curl -sf -X POST \
+		-H "$AUTH_HEADER" \
+		-H "Content-Type: application/json" \
+		"${AUTHENTIK_API}/providers/proxy/" \
+		-d "$(jq -n \
+			--arg name "Pi-hole" \
+			--arg ext_host "https://pihole.lan.${DOMAIN}" \
+			--arg auth_flow "$AUTH_FLOW_UUID" \
+			--arg inv_flow "$INVALIDATION_FLOW_UUID" \
+			'{name:$name, mode:"forward_single", external_host:$ext_host, authorization_flow:$auth_flow, invalidation_flow:$inv_flow}')")
+	PIHOLE_PROVIDER_ID=$(echo "$PROVIDER_RESP" | jq -r '.pk // empty')
+	[[ -n "$PIHOLE_PROVIDER_ID" ]] || die "Failed to create proxy provider: $PROVIDER_RESP"
+	success "Proxy provider created (id: ${PIHOLE_PROVIDER_ID})"
+fi
+
+# Check if application already exists
+APP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+	-H "$AUTH_HEADER" \
+	"${AUTHENTIK_API}/core/applications/pihole/")
+
+if [[ "$APP_STATUS" == "200" ]]; then
+	info "Application 'pihole' already exists"
+else
+	info "Creating application 'pihole'..."
+	APP_RESP=$(curl -sf -X POST \
+		-H "$AUTH_HEADER" \
+		-H "Content-Type: application/json" \
+		"${AUTHENTIK_API}/core/applications/" \
+		-d "$(jq -n \
+			--arg provider_id "$PIHOLE_PROVIDER_ID" \
+			'{name:"Pi-hole", slug:"pihole", provider:($provider_id | tonumber)}')")
+	echo "$APP_RESP" | jq -e '.slug' >/dev/null ||
+		die "Failed to create application: $APP_RESP"
+	success "Application 'pihole' created"
+fi
+
+# Assign provider to embedded outpost
+EMBEDDED_OUTPOST_UUID=$(curl -sf \
+	-H "$AUTH_HEADER" \
+	"${AUTHENTIK_API}/outposts/instances/" |
+	jq -r '.results[] | select(.name == "authentik Embedded Outpost") | .pk' | head -1)
+[[ -n "$EMBEDDED_OUTPOST_UUID" ]] || die "Could not find authentik Embedded Outpost"
+
+EXISTING_PROVIDERS=$(curl -sf \
+	-H "$AUTH_HEADER" \
+	"${AUTHENTIK_API}/outposts/instances/${EMBEDDED_OUTPOST_UUID}/" |
+	jq -r '.providers[]')
+
+if echo "$EXISTING_PROVIDERS" | grep -qw "$PIHOLE_PROVIDER_ID"; then
+	info "Provider already assigned to embedded outpost"
+else
+	info "Adding provider to embedded outpost..."
+	# Fetch current providers list and append the new one
+	CURRENT_PROVIDERS=$(curl -sf \
+		-H "$AUTH_HEADER" \
+		"${AUTHENTIK_API}/outposts/instances/${EMBEDDED_OUTPOST_UUID}/" |
+		jq '[.providers[] | tonumber] + ['"$PIHOLE_PROVIDER_ID"']')
+	curl -sf -X PATCH \
+		-H "$AUTH_HEADER" \
+		-H "Content-Type: application/json" \
+		"${AUTHENTIK_API}/outposts/instances/${EMBEDDED_OUTPOST_UUID}/" \
+		-d "$(jq -n --argjson providers "$CURRENT_PROVIDERS" '{providers:$providers}')" >/dev/null
+	success "Provider assigned to embedded outpost"
+fi
+
 # ─── PHASE 7: WRITE refresh-envs.sh ON RPi ──────────────────────────────────
 echo ""
 info "Writing refresh-envs.sh on RPi..."
@@ -516,7 +616,6 @@ PG_PASS=$(bws_get            "perimeter/authentik/pg_pass")
 AUTHENTIK_SECRET_KEY=$(bws_get "perimeter/authentik/secret_key")
 BOOTSTRAP_TOKEN=$(bws_get    "perimeter/authentik/bootstrap_token")
 BOOTSTRAP_PASSWORD=$(bws_get "perimeter/authentik/bootstrap_password")
-PIHOLE_PASSWORD=$(bws_get    "perimeter/pihole/api_password")
 CF_API_TOKEN=$(bws_get       "perimeter/cloudflare/api_token")
 DOMAIN=$(bws_get             "perimeter/cloudflare/domain")
 PERIMETER_CONFIG=$(bws_get   "perimeter/config")
@@ -550,7 +649,6 @@ EOF
 
 cat > "${STACK_BASE}/pihole/.env" <<EOF
 TZ='${TZ_INPUT}'
-FTLCONF_WEBSERVER_API_PASSWORD='${PIHOLE_PASSWORD}'
 EOF
 
 cat > "${STACK_BASE}/cloudflare-ddns/.env" <<EOF
@@ -580,7 +678,11 @@ print_service() {
 
 print_service "Authentik" "http://${PERIMETER_IP}:9000/-/health/ready/"
 print_service "Caddy admin" "http://${PERIMETER_IP}:2019/config/"
-print_service "Pi-hole" "http://${PERIMETER_IP}:7989/api/docs"
+if rpi "docker exec pihole curl -sf http://localhost:80/api/docs" >/dev/null 2>&1; then
+	echo -e "  ${GREEN}✓${NC}  Pi-hole — docker exec (internal network)"
+else
+	echo -e "  ${YELLOW}?${NC}  Pi-hole — docker exec (not yet reachable)"
+fi
 
 echo ""
 echo -e "  ${CYAN}URLs (once DNS propagates):${NC}"
