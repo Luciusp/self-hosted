@@ -14,14 +14,7 @@ services:
       - ./site:/srv
       - caddy_data:/data
       - caddy_config:/config
-    networks:
-      - default
-      - perimeter_internal
 
 volumes:
   caddy_data:
   caddy_config:
-
-networks:
-  perimeter_internal:
-    external: true

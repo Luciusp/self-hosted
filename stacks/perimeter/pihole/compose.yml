@@ -7,18 +7,20 @@ services:
       # DNS Ports
       - "53:53/tcp"
       - "53:53/udp"
+      # Default HTTP Port
+      - "7989:80/tcp"
     environment:
       # Set the appropriate timezone for your location from
       # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones, e.g:
       TZ: ${TZ}
-      # No password — access is gated by Authentik forward-auth via Caddy (ADR 0004)
-      FTLCONF_webserver_api_password: ""
+      # Set a password to access the web interface. Not setting one will result in a random password being assigned
+      FTLCONF_webserver_api_password: ${FTLCONF_WEBSERVER_API_PASSWORD}
       # If using Docker's default `bridge` network setting the dns listening mode should be set to 'ALL'
-      FTLCONF_dns_listeningMode: "ALL"
+      FTLCONF_dns_listeningMode: 'ALL'
     # Volumes store your data between container upgrades
     volumes:
       # For persisting Pi-hole's databases and common configuration file
-      - "./etc-pihole:/etc/pihole"
+      - './etc-pihole:/etc/pihole'
     cap_add:
       # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
       # Required if you are using Pi-hole as your DHCP server, else not needed
@@ -28,9 +30,3 @@ services:
       # Optional, if Pi-hole should get some more processing time
       - SYS_NICE
     restart: unless-stopped
-    networks:
-      - perimeter_internal
-
-networks:
-  perimeter_internal:
-    external: true
