@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Idempotent perimeter stack initializer.
-# Spins up Caddy, Authentik, Pi-hole, and Cloudflare DDNS on the perimeter RPi.
+# Spins up Caddy, Authentik, Pi-hole, and Cloudflare DDNS on the perimeter host.
 # Secrets are generated once and stored in Bitwarden Secrets (BWS).
 # Safe to re-run: existing secrets/containers/DNS records are left untouched.
 set -euo pipefail
@@ -146,7 +146,7 @@ while [[ -z "$PERIMETER_IP" ]]; do
 	[[ -z "$PERIMETER_IP" ]] && warn "Perimeter IP is required"
 done
 if [[ -z "${SSH_USER:-}" ]]; then
-	read -rp "SSH user on RPi [pi]: " SSH_USER
+	read -rp "SSH user on host [required, e.g. pi]: " SSH_USER
 fi
 SSH_USER="${SSH_USER:-pi}"
 PROXMOX_IP="${PROXMOX_IP:-}"
@@ -184,10 +184,10 @@ if [[ -n "$_stored_ssh_key" ]]; then
 	printf '%s\n' "$_stored_ssh_key" >"$SSH_KEY_FILE"
 	chmod 600 "$SSH_KEY_FILE"
 else
-	warn "No SSH key found in BWS. A new ed25519 key will be generated and pushed to the RPi."
+	warn "No SSH key found in BWS. A new ed25519 key will be generated and pushed to the host."
 	_rpi_password="${RPI_PASSWORD:-}"
 	if [[ -z "$_rpi_password" ]]; then
-		read -rsp "RPi password for ${SSH_USER}@${PERIMETER_IP}: " _rpi_password
+		read -rsp "host password for ${SSH_USER}@${PERIMETER_IP}: " _rpi_password
 		echo ""
 	fi
 
@@ -199,7 +199,7 @@ else
 		-o StrictHostKeyChecking=no \
 		-i "$SSH_KEY_FILE" \
 		"${SSH_USER}@${PERIMETER_IP}" ||
-		die "Failed to push public key to RPi — check password and ensure SSH is running"
+		die "Failed to push public key to host — check password and ensure SSH is running"
 	rm -f "${SSH_KEY_FILE}.pub"
 
 	info "Storing private key in BWS as perimeter/self/ssh_key..."
@@ -215,8 +215,8 @@ ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "${SSH_KEY_FILE}" "${SSH
 	die "SSH connection failed to ${SSH_USER}@${PERIMETER_IP}"
 success "SSH connection to ${PERIMETER_IP} OK"
 
-rpi "command -v docker >/dev/null 2>&1" || die "docker not found on perimeter RPi"
-success "Docker present on RPi"
+rpi "command -v docker >/dev/null 2>&1" || die "docker not found on perimeter host"
+success "Docker present on host"
 
 # ─── PHASE 1: RESOLVE SECRETS ───────────────────────────────────────────────
 echo ""
@@ -259,9 +259,9 @@ info "Config JSON stored in BWS as perimeter/config"
 
 success "All secrets resolved"
 
-# ─── PHASE 2: CLONE / PULL REPO ON RPi ──────────────────────────────────────
+# ─── PHASE 2: CLONE / PULL REPO ON host ──────────────────────────────────────
 echo ""
-info "Syncing repo on RPi..."
+info "Syncing repo on host..."
 
 REPO_URL="https://github.com/Luciusp/self-hosted.git"
 REPO_BRANCH="${REPO_BRANCH:-feat/refactor-topology}"
@@ -279,23 +279,23 @@ else
     git clone --branch "${REPO_BRANCH}" "${REPO_URL}" "\$HOME/.repos/self-hosted"
 fi
 ENDSSH
-success "Repo up-to-date on RPi"
+success "Repo up-to-date on host"
 
 # ─── PHASE 2b: COPY STACKS TO ~/servers ─────────────────────────────────────
 # .env files live outside the git checkout so a `git pull` never touches
 # secrets or clobbers local runtime state.
 echo ""
-info "Copying stacks to ~/servers on RPi..."
+info "Copying stacks to ~/servers on host..."
 
 for stack in authentik caddy pihole cloudflare-ddns; do
 	rpi "mkdir -p \$HOME/servers/${stack} && cp -r \$HOME/.repos/self-hosted/stacks/perimeter/${stack}/. \$HOME/servers/${stack}/" ||
 		die "Failed to copy stack: ${stack}"
 done
-success "Stacks copied to ~/servers on RPi"
+success "Stacks copied to ~/servers on host"
 
 # ─── PHASE 3: WRITE .env FILES ──────────────────────────────────────────────
 echo ""
-info "Writing .env files on RPi..."
+info "Writing .env files on host..."
 
 # authentik/.env
 rpi "tee \$HOME/servers/authentik/.env > /dev/null" <<EOF
@@ -344,7 +344,7 @@ success "cloudflare-ddns/.env written"
 
 # ─── PHASE 5: START STACKS ──────────────────────────────────────────────────
 echo ""
-info "Starting stacks on RPi..."
+info "Starting stacks on host..."
 
 for stack in authentik caddy pihole cloudflare-ddns; do
 	info "Starting $stack..."
@@ -461,9 +461,9 @@ AUTHENTIK_API_TOKEN=$(echo "$KEY_RESP" | jq -r '.key // empty')
 bws_set "perimeter/authentik/api_token_tf" "$AUTHENTIK_API_TOKEN"
 success "authentik_api_token_tf key stored in BWS as perimeter/authentik/api_token_tf"
 
-# ─── PHASE 7: WRITE refresh-envs.sh ON RPi ──────────────────────────────────
+# ─── PHASE 7: WRITE refresh-envs.sh ON host ──────────────────────────────────
 echo ""
-info "Writing refresh-envs.sh on RPi..."
+info "Writing refresh-envs.sh on host..."
 
 rpi "tee \$HOME/refresh-envs.sh > /dev/null && chmod +x \$HOME/refresh-envs.sh" <<'ENDSSH'
 #!/usr/bin/env bash
@@ -538,7 +538,7 @@ EOF
 
 echo "All .env files refreshed from BWS"
 ENDSSH
-success "refresh-envs.sh written to ~/refresh-envs.sh on RPi"
+success "refresh-envs.sh written to ~/refresh-envs.sh on host"
 
 # ─── PHASE 8: HEALTH SUMMARY ────────────────────────────────────────────────
 echo ""

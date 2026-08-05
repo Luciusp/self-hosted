@@ -26,3 +26,31 @@ pihole.lan.{$DOMAIN} {
 auth.{$DOMAIN} {
     reverse_proxy {$PERIMETER_IP}:9000
 }
+
+mosaic.{$DOMAIN} {
+        @da path /da /da/*
+        redir /da /da/ 308
+        handle @da {
+                uri strip_prefix /da
+                reverse_proxy https://192.168.0.231:49257 {
+                        transport http {
+                                tls_insecure_skip_verify
+                        }
+                }
+        }
+        handle /* {
+                reverse_proxy https://192.168.0.231:49253 {
+                        transport http {
+                                tls_insecure_skip_verify
+                        }
+                }
+        }
+}
+
+azurite.lan.{$DOMAIN} {
+        reverse_proxy http://192.168.0.50:10000
+}
+
+hedgedoc.{$DOMAIN} {
+        reverse_proxy http://192.168.0.5:3000
+}
