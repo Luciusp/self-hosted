@@ -86,7 +86,7 @@ resolve_secret() {
 # ─── SSH helper ─────────────────────────────────────────────────────────────
 # SSH_KEY_FILE is a temp file path set during the SSH bootstrap phase
 SSH_KEY_FILE=""
-rpi() { ssh -o StrictHostKeyChecking=no -i "${SSH_KEY_FILE}" "${SSH_USER}@${PERIMETER_IP}" "$@"; }
+remote_exec() { ssh -o StrictHostKeyChecking=no -i "${SSH_KEY_FILE}" "${SSH_USER}@${PERIMETER_IP}" "$@"; }
 
 # ─── wait_healthy URL ────────────────────────────────────────────────────────
 wait_healthy() {
@@ -185,9 +185,9 @@ if [[ -n "$_stored_ssh_key" ]]; then
 	chmod 600 "$SSH_KEY_FILE"
 else
 	warn "No SSH key found in BWS. A new ed25519 key will be generated and pushed to the host."
-	_rpi_password="${RPI_PASSWORD:-}"
-	if [[ -z "$_rpi_password" ]]; then
-		read -rsp "host password for ${SSH_USER}@${PERIMETER_IP}: " _rpi_password
+	_remote_host_password="${RPI_PASSWORD:-}"
+	if [[ -z "$_remote_host_password" ]]; then
+		read -rsp "host password for ${SSH_USER}@${PERIMETER_IP}: " _remote_host_password
 		echo ""
 	fi
 
@@ -195,7 +195,7 @@ else
 	ssh-keygen -t ed25519 -C "perimeter-init@$(hostname)" -N "" -f "$SSH_KEY_FILE" >/dev/null
 
 	info "Pushing public key to ${SSH_USER}@${PERIMETER_IP}..."
-	sshpass -p "$_rpi_password" ssh-copy-id \
+	sshpass -p "$_remote_host_password" ssh-copy-id \
 		-o StrictHostKeyChecking=no \
 		-i "$SSH_KEY_FILE" \
 		"${SSH_USER}@${PERIMETER_IP}" ||
@@ -215,7 +215,7 @@ ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "${SSH_KEY_FILE}" "${SSH
 	die "SSH connection failed to ${SSH_USER}@${PERIMETER_IP}"
 success "SSH connection to ${PERIMETER_IP} OK"
 
-rpi "command -v docker >/dev/null 2>&1" || die "docker not found on perimeter host"
+remote_exec "command -v docker >/dev/null 2>&1" || die "docker not found on perimeter host"
 success "Docker present on host"
 
 # ─── PHASE 1: RESOLVE SECRETS ───────────────────────────────────────────────
@@ -225,6 +225,7 @@ info "Resolving secrets (generating new ones only where needed)..."
 PG_PASS=$(resolve_secret "perimeter/authentik/pg_pass" "openssl rand -base64 32 | tr -d '\n'")
 AUTHENTIK_SECRET_KEY=$(resolve_secret "perimeter/authentik/secret_key" "openssl rand -base64 60 | tr -d '\n'")
 BOOTSTRAP_TOKEN=$(resolve_secret "perimeter/authentik/bootstrap_token" "openssl rand -hex 32")
+BOOTSTRAP_PASSWORD=$(resolve_secret "perimeter/authentik/bootstrap_password" "openssl rand -base64 24 | tr -d '\n'")
 PIHOLE_PASSWORD=$(resolve_secret "perimeter/pihole/api_password" "openssl rand -base64 24 | tr -d '\n'")
 
 # Store user-provided values idempotently
@@ -266,7 +267,7 @@ info "Syncing repo on host..."
 REPO_URL="https://github.com/Luciusp/self-hosted.git"
 REPO_BRANCH="${REPO_BRANCH:-feat/refactor-topology}"
 
-rpi "bash -s" <<ENDSSH
+remote_exec "bash -s" <<ENDSSH
 set -euo pipefail
 if [ -d "\$HOME/.repos/self-hosted/.git" ]; then
     echo "Repo exists, pulling..."
@@ -288,7 +289,7 @@ echo ""
 info "Copying stacks to ~/servers on host..."
 
 for stack in authentik caddy pihole cloudflare-ddns; do
-	rpi "mkdir -p \$HOME/servers/${stack} && cp -r \$HOME/.repos/self-hosted/stacks/perimeter/${stack}/. \$HOME/servers/${stack}/" ||
+	remote_exec "mkdir -p \$HOME/servers/${stack} && cp -r \$HOME/.repos/self-hosted/stacks/perimeter/${stack}/. \$HOME/servers/${stack}/" ||
 		die "Failed to copy stack: ${stack}"
 done
 success "Stacks copied to ~/servers on host"
@@ -298,7 +299,7 @@ echo ""
 info "Writing .env files on host..."
 
 # authentik/.env
-rpi "tee \$HOME/servers/authentik/.env > /dev/null" <<EOF
+remote_exec "tee \$HOME/servers/authentik/.env > /dev/null" <<EOF
 # PostgreSQL
 PG_DB='authentik'
 PG_USER='authentik'
@@ -311,6 +312,8 @@ AUTHENTIK_TAG='2026.5.3'
 
 # Bootstrap (first-start only — seeds akadmin API token)
 AUTHENTIK_BOOTSTRAP_TOKEN='${BOOTSTRAP_TOKEN}'
+AUTHENTIK_BOOTSTRAP_PASSWORD='${BOOTSTRAP_PASSWORD}'
+AUTHENTIK_BOOTSTRAP_EMAIL='${ADMIN_EMAIL}'
 
 # Ports
 COMPOSE_PORT_HTTP='9000'
@@ -319,7 +322,7 @@ EOF
 success "authentik/.env written"
 
 # caddy/.env
-rpi "tee \$HOME/servers/caddy/.env > /dev/null" <<EOF
+remote_exec "tee \$HOME/servers/caddy/.env > /dev/null" <<EOF
 DOMAIN='${DOMAIN}'
 CLOUDFLARE_API_TOKEN='${CF_API_TOKEN}'
 PERIMETER_IP='${PERIMETER_IP}'
@@ -329,14 +332,14 @@ EOF
 success "caddy/.env written"
 
 # pihole/.env
-rpi "tee \$HOME/servers/pihole/.env > /dev/null" <<EOF
+remote_exec "tee \$HOME/servers/pihole/.env > /dev/null" <<EOF
 TZ='${TZ_INPUT}'
 FTLCONF_WEBSERVER_API_PASSWORD='${PIHOLE_PASSWORD}'
 EOF
 success "pihole/.env written"
 
 # cloudflare-ddns/.env
-rpi "tee \$HOME/servers/cloudflare-ddns/.env > /dev/null" <<EOF
+remote_exec "tee \$HOME/servers/cloudflare-ddns/.env > /dev/null" <<EOF
 CLOUDFLARE_API_TOKEN='${CF_API_TOKEN}'
 DOMAINS='${DOMAIN}'
 EOF
@@ -348,7 +351,7 @@ info "Starting stacks on host..."
 
 for stack in authentik caddy pihole cloudflare-ddns; do
 	info "Starting $stack..."
-	rpi "cd \$HOME/servers/${stack} && docker compose up -d" ||
+	remote_exec "cd \$HOME/servers/${stack} && docker compose up -d" ||
 		die "Failed to start stack: $stack"
 	success "$stack started"
 done
@@ -465,7 +468,7 @@ success "authentik_api_token_tf key stored in BWS as perimeter/authentik/api_tok
 echo ""
 info "Writing refresh-envs.sh on host..."
 
-rpi "tee \$HOME/refresh-envs.sh > /dev/null && chmod +x \$HOME/refresh-envs.sh" <<'ENDSSH'
+remote_exec "tee \$HOME/refresh-envs.sh > /dev/null && chmod +x \$HOME/refresh-envs.sh" <<'ENDSSH'
 #!/usr/bin/env bash
 # Re-fetches all perimeter stack secrets from BWS and rewrites .env files.
 # Run manually or via systemd timer before docker compose up.
@@ -497,6 +500,7 @@ STACK_BASE="$HOME/servers"
 PG_PASS=$(bws_get            "perimeter/authentik/pg_pass")
 AUTHENTIK_SECRET_KEY=$(bws_get "perimeter/authentik/secret_key")
 BOOTSTRAP_TOKEN=$(bws_get    "perimeter/authentik/bootstrap_token")
+BOOTSTRAP_PASSWORD=$(bws_get "perimeter/authentik/bootstrap_password")
 PIHOLE_PASSWORD=$(bws_get    "perimeter/pihole/api_password")
 CF_API_TOKEN=$(bws_get       "perimeter/cloudflare/api_token")
 DOMAIN=$(bws_get             "perimeter/cloudflare/domain")
@@ -514,6 +518,8 @@ AUTHENTIK_SECRET_KEY='${AUTHENTIK_SECRET_KEY}'
 AUTHENTIK_IMAGE='ghcr.io/goauthentik/server'
 AUTHENTIK_TAG='2026.5.3'
 AUTHENTIK_BOOTSTRAP_TOKEN='${BOOTSTRAP_TOKEN}'
+AUTHENTIK_BOOTSTRAP_PASSWORD='${BOOTSTRAP_PASSWORD}'
+AUTHENTIK_BOOTSTRAP_EMAIL='${ADMIN_EMAIL}'
 COMPOSE_PORT_HTTP='9000'
 COMPOSE_PORT_HTTPS='9443'
 EOF
