@@ -1,0 +1,16 @@
+- name: Bootstrap perimeter
+  hosts: perimeter
+  become: true
+  roles:
+    # Ensures docker is installed
+    - role: geerlingguy.docker
+      vars:
+        docker_install_compose_plugin: true
+        docker_edition: ce
+        docker_users:
+          - ansible
+  # Pihole
+  # Authentik
+  # Duckdns
+  # Cloudflare DDNS
+  # Caddy

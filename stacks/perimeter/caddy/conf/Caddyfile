@@ -9,7 +9,7 @@ proxmox.lan.{$DOMAIN} {
     @denied not client_ip private_ranges
     abort @denied
 
-    reverse_proxy https://{$PROXMOX_IP}:{$PROXMOX_PORT} {
+    reverse_proxy https://{$PROXMOX_MASTER_IP}:{$PROXMOX_PORT} {
         transport http {
             tls_insecure_skip_verify
         }
