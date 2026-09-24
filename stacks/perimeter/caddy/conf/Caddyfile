@@ -1,56 +1,74 @@
 {
-    admin 0.0.0.0:2019 {
-        origins localhost:2019 127.0.0.1:2019 0.0.0.0:2019
-    }
-    acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
+	admin 0.0.0.0:2019 {
+		origins localhost:2019 127.0.0.1:2019 0.0.0.0:2019
+	}
+	acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
 }
 
 proxmox.lan.{$DOMAIN} {
-    @denied not client_ip private_ranges
-    abort @denied
+	@denied not client_ip private_ranges
+	abort @denied
 
-    reverse_proxy https://{$PROXMOX_MASTER_IP}:{$PROXMOX_PORT} {
-        transport http {
-            tls_insecure_skip_verify
-        }
-    }
+	reverse_proxy https://{$PROXMOX_IP}:{$PROXMOX_PORT} {
+		transport http {
+			tls_insecure_skip_verify
+		}
+	}
 }
 
 pihole.lan.{$DOMAIN} {
-    @denied not client_ip private_ranges
-    abort @denied
+	@denied not client_ip private_ranges
+	abort @denied
 
-    reverse_proxy {$PERIMETER_IP}:7989
+	@root path /
+	redir @root /admin 302
+
+	reverse_proxy {$PERIMETER_IP}:7989
 }
 
 auth.{$DOMAIN} {
-    reverse_proxy {$PERIMETER_IP}:9000
+	reverse_proxy {$PERIMETER_IP}:9000
 }
 
 mosaic.{$DOMAIN} {
-        @da path /da /da/*
-        redir /da /da/ 308
-        handle @da {
-                uri strip_prefix /da
-                reverse_proxy https://192.168.0.231:49257 {
-                        transport http {
-                                tls_insecure_skip_verify
-                        }
-                }
-        }
-        handle /* {
-                reverse_proxy https://192.168.0.231:49253 {
-                        transport http {
-                                tls_insecure_skip_verify
-                        }
-                }
-        }
+	@da path /da /da/*
+	redir /da /da/ 308
+	handle @da {
+		uri strip_prefix /da
+		reverse_proxy https://192.168.0.231:49257 {
+			header_up Host {host}
+			transport http {
+				tls_insecure_skip_verify
+			}
+		}
+	}
+	handle /* {
+		reverse_proxy https://192.168.0.231:49253 {
+			header_up Host {host}
+			transport http {
+				tls_insecure_skip_verify
+			}
+		}
+	}
+}
+
+search.lan.{$DOMAIN} {
+	@denied not client_ip private_ranges
+	abort @denied
+
+	reverse_proxy {$PERIMETER_IP}:8080
 }
 
 azurite.lan.{$DOMAIN} {
-        reverse_proxy http://192.168.0.50:10000
+	reverse_proxy http://192.168.0.231:10000
 }
 
 hedgedoc.{$DOMAIN} {
-        reverse_proxy http://192.168.0.5:3000
+	reverse_proxy http://192.168.0.5:3000
+}
+abs.lan.{$DOMAIN} {
+	reverse_proxy http://192.168.0.5:13378
+}
+pwpush.{$DOMAIN} {
+	reverse_proxy http://192.168.0.5:5100
 }

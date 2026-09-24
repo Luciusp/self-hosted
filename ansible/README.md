@@ -78,15 +78,15 @@ perimeter:
   hosts:
     node1:
       ansible_host: "<perimeter-ip>" # Perimeter IP address
-      ansible_ssh_private_key_file: "~/.ssh/ansible-perimeter" # private key from step 3
+      ansible_ssh_private_key_file: "/tmp/ansible-ssh" # key is automatically pulled
 all:
   vars:
     ansible_user: ansible # user created in step 2
 ```
 
-- `ansible_host`: the Perimeter's IP address
-- `ansible_ssh_private_key_file`: path to the private key created in step 3
-- `ansible_user`: the SSH user created in step 2
+### 7. Create `secret-ids.yml`
+
+Copy `secret-ids.example.yml` to `secret-ids.yml` (gitignored) and set the Bitwarden secret IDs the playbook looks up.
 
 ## Running the playbook
 

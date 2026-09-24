@@ -1,15 +1,62 @@
 - name: Bootstrap perimeter
   hosts: perimeter
-  become: true
+  gather_facts: false
+  vars_files:
+    - secret-ids.yml
+
+  vars:
+    ssh:
+      ANSIBLE_PRIVATE_KEY: "{{ lookup('bitwarden.secrets.lookup', ssh_secret_id) }}"
+    pihole:
+      FTLCONF_WEBSERVER_API_PASSWORD: "{{ lookup('bitwarden.secrets.lookup', pihole_secret_id) }}"
+    services_dir: "~/services"
+  pre_tasks:
+    - name: Write SSH private key to temp file
+      ansible.builtin.copy:
+        dest: /tmp/ansible-ssh
+        content: "{{ ssh.ANSIBLE_PRIVATE_KEY }}"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+    # Allows the SSH private key to be dynamic
+    - name: Gather facts
+      ansible.builtin.setup:
   roles:
-    # Ensures docker is installed
+    # Ensures docker is installed (needs root to install packages + manage the docker group)
     - role: geerlingguy.docker
+      become: true
       vars:
         docker_install_compose_plugin: true
         docker_edition: ce
         docker_users:
           - ansible
-  # Pihole
+  tasks:
+    # Pihole
+    - name: Ensure Pi-hole stack directory exists
+      ansible.builtin.file:
+        path: "{{ services_dir }}/pihole"
+        state: directory
+        mode: "0755"
+
+    - name: Copy Pi-hole compose file
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../stacks/perimeter/pihole/compose.yml"
+        dest: "{{ services_dir }}/pihole/compose.yml"
+        mode: "0644"
+
+    - name: Write Pi-hole .env
+      ansible.builtin.copy:
+        dest: "{{ services_dir }}/pihole/.env"
+        content: |
+          TZ=America/Los_Angeles
+          FTLCONF_WEBSERVER_API_PASSWORD='{{ pihole.FTLCONF_WEBSERVER_API_PASSWORD }}'
+        mode: "0600"
+
+    - name: Start Pi-hole stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ services_dir }}/pihole"
+        state: present
+        pull: always
   # Authentik
   # Duckdns
   # Cloudflare DDNS

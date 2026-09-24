@@ -3,6 +3,7 @@
 - [pre-commit](https://pre-commit.com/#install)
 - [tofuenv](https://github.com/tofuutils/tofuenv)
 - [docker](https://docs.docker.com/get-docker/)
+- [caddy](https://github.com/caddyserver/caddy/releases) (for formatting)
 
 ## Setup
 1. Run `pre-commit install` to initialize pre-commit hooks

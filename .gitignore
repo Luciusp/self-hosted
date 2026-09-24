@@ -48,5 +48,6 @@ terragrunt-debug.tfvars.json
 
 # Ansible
 .ansible
+secret-ids.yml
 
 # End of https://www.toptal.com/developers/gitignore/api/terragrunt,terraform
